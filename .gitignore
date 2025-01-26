@@ -169,3 +169,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+// client_secret
+client_secret.json
+token.json
+netflix_client_credentials.json
