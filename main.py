@@ -1,14 +1,6 @@
 import time
-import os.path
-import re
-import base64
-import json
 import platform
 
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -17,70 +9,10 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-
-client_secret_filename = "client_secret.json"
-netflix_client_credentials = "netflix_client_credentials.json"
-
-# Funktion, um die Netflix-Anmeldedaten aus der JSON-Datei zu laden
-def load_netflix_credentials():
-    with open('netflix_client_credentials.json', 'r') as file:
-        credentials = json.load(file)
-    return credentials['netflix_accountname'], credentials['netflix_password']
+from service import authenticate_gmail, extract_netflix_location_link, get_unread_emails, load_netflix_credentials, mark_email_as_read
 
 # Laden der Netflix-Anmeldedaten
 netflix_accountname, netflix_password = load_netflix_credentials()
-
-# Berechtigungen für die Gmail API
-SCOPES = [
-    'https://www.googleapis.com/auth/gmail.readonly'
-]
-
-def authenticate_gmail():
-    """Authentifiziert den Benutzer und erstellt einen Dienst."""
-    creds = None
-    token_path = 'token.json'
-    if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                client_secret_filename, SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open(token_path, 'w') as token:
-            token.write(creds.to_json())
-    return build('gmail', 'v1', credentials=creds)
-
-def get_unread_emails(service):
-    """Holt ungelesene E-Mails."""
-    results = service.users().messages().list(userId='me', q="is:unread").execute()
-    messages = results.get('messages', [])
-    if not messages:
-        return []
-    emails = []
-    for message in messages:
-        msg = service.users().messages().get(userId='me', id=message['id']).execute()
-        email_data = {
-            'id': msg['id'],
-            'snippet': msg['snippet'],
-            'payload': msg['payload']
-        }
-        emails.append(email_data)
-    return emails
-
-def extract_netflix_location_link(payload):
-    """Extrahiert den Netflix-Link zur Standortaktualisierung."""
-    if 'parts' in payload:
-        for part in payload['parts']:
-            if part['mimeType'] == 'text/html' and 'body' in part and 'data' in part['body']:
-                html_content = part['body']['data']
-                html_content = base64.urlsafe_b64decode(html_content).decode('utf-8')
-                links = re.findall(r'(https?://\S+)', html_content)
-                for link in links:
-                    if "https://www.netflix.com/account/update-primary-location" in link:
-                        return link
-    return None
 
 def click_primary_location_button(link, email_id, service):
     """Öffnet den Link und versucht entweder, den `set-primary-location-action` Button zu klicken oder loggt sich ein und markiert die E-Mail als gelesen."""
@@ -145,16 +77,6 @@ def click_primary_location_button(link, email_id, service):
         print(f"Fehler beim Zugriff auf den Link: {e}")
     finally:
         driver.quit()  # Schließt den Browser
-
-
-def mark_email_as_read(service, email_id):
-    """Markiert eine E-Mail als gelesen."""
-    try:
-        # Aktualisiere den Status der E-Mail auf 'gelesen'
-        msg = service.users().messages().modify(userId='me', id=email_id, body={'removeLabelIds': ['UNREAD']}).execute()
-        print(f"E-Mail {email_id} wurde als gelesen markiert.")
-    except Exception as e:
-        print(f"Fehler beim Markieren der E-Mail als gelesen: {e}")
 
 
 if __name__ == "__main__":
