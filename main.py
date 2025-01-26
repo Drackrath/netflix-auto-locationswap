@@ -9,7 +9,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from service import authenticate_gmail, extract_netflix_location_link, get_unread_emails, load_netflix_credentials, mark_email_as_read
+from service import authenticate_gmail, check_chrome_headless, extract_netflix_location_link, get_unread_emails, load_netflix_credentials, mark_email_as_read
 from service import ensure_chrome_binary
 
 # Laden der Netflix-Anmeldedaten
@@ -85,6 +85,10 @@ def click_primary_location_button(link, email_id, service):
 if __name__ == "__main__":
     print("Chrome Binary wird überprüft...")
     chrome_executable = ensure_chrome_binary()  # Stelle sicher, dass der Chromedriver vorhanden ist
+    print(f"Chrome Binary: {chrome_executable}")
+    
+    #print("Chrome Headless wird überprüft...")
+    #check_chrome_headless(chrome_executable)
     
     print("Authentifizierung...")
     service = authenticate_gmail(chrome_executable)  # Authentifiziere den Gmail-Dienst

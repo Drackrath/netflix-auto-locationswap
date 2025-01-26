@@ -6,6 +6,7 @@ import json
 import requests
 import zipfile
 import subprocess
+import psutil
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -27,6 +28,27 @@ def load_netflix_credentials():
         credentials = json.load(file)
     return credentials['netflix_accountname'], credentials['netflix_password']
 
+def check_chrome_headless(chrome_executable):
+    """Prüft, ob Chrome im Headless-Modus läuft und öffnet die Sitzung. Falls nicht, startet es im Headless-Modus."""
+    chrome_running = False
+    for proc in psutil.process_iter(attrs=['pid', 'name', 'cmdline']):
+        if 'chrome' in proc.info['name'].lower():
+            # Check if Chrome is running in headless mode by inspecting the command line arguments
+            if '--headless' in proc.info['cmdline']:
+                print("Chrome is running in headless mode.")
+                chrome_running = True
+                break
+            else:
+                print("Chrome is running in non-headless mode.")
+                return False
+
+    if not chrome_running:
+        print("Chrome is not running. Starting Chrome in headless mode...")
+        # Start Chrome in headless mode and open remote debugging session
+        subprocess.Popen([chrome_executable, '--headless', '--remote-debugging-port=9222'])
+        return True
+    
+    return True
 
 def authenticate_gmail(chrome_executable):
     """Authentifiziert den Benutzer und erstellt einen Dienst unter Verwendung des chrome_executable."""
@@ -129,3 +151,4 @@ def ensure_chrome_binary():
 
     else:
         print("Chrome binary gefunden...")
+        return chrome_executable
