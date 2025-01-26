@@ -2,6 +2,8 @@ import os.path
 import re
 import base64
 import json
+import requests
+import zipfile
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -79,3 +81,36 @@ def mark_email_as_read(service, email_id):
         print(f"E-Mail {email_id} wurde als gelesen markiert.")
     except Exception as e:
         print(f"Fehler beim Markieren der E-Mail als gelesen: {e}")
+        
+        
+def ensure_chrome_binary():
+    """Ensures that the chrome-linux64 directory exists. If not, downloads and extracts it."""
+    chrome_dir = "./chrome-linux64"
+    chrome_zip_url = "https://storage.googleapis.com/chrome-for-testing-public/132.0.6834.110/linux64/chrome-linux64.zip"
+    chrome_zip_file = "chrome-linux64.zip"
+
+    # Check if the chrome-linux64 directory already exists
+    if not os.path.exists(chrome_dir):
+        print("chrome-linux64 directory not found. Downloading...")
+
+        # Download the zip file
+        response = requests.get(chrome_zip_url, stream=True)
+        if response.status_code == 200:
+            with open(chrome_zip_file, "wb") as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+            print(f"Downloaded {chrome_zip_file}")
+        else:
+            raise Exception(f"Failed to download Chrome zip file. HTTP Status: {response.status_code}")
+
+        # Extract the zip file
+        with zipfile.ZipFile(chrome_zip_file, "r") as zip_ref:
+            zip_ref.extractall(".")
+        print(f"Extracted {chrome_zip_file} to {chrome_dir}")
+
+        # Clean up the zip file
+        os.remove(chrome_zip_file)
+        print(f"Removed the zip file {chrome_zip_file}")
+
+    else:
+        print("chrome-linux64 directory already exists.")

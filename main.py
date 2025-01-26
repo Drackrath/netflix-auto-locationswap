@@ -10,6 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from service import authenticate_gmail, extract_netflix_location_link, get_unread_emails, load_netflix_credentials, mark_email_as_read
+from service import ensure_chrome_binary
 
 # Laden der Netflix-Anmeldedaten
 netflix_accountname, netflix_password = load_netflix_credentials()
@@ -80,6 +81,9 @@ def click_primary_location_button(link, email_id, service):
 
 
 if __name__ == "__main__":
+    print("Linux Chromedriver wird heruntergeladen...")
+    ensure_chrome_binary()  # Stelle sicher, dass der Chromedriver vorhanden ist
+    
     print("Authentifizierung...")
     service = authenticate_gmail()
 
