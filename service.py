@@ -7,11 +7,17 @@ import requests
 import zipfile
 import subprocess
 import psutil
+import webbrowser
+import time
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+import threading
+from flask import Flask, request
 
 # Globale Variablen
 client_secret_filename = "client_secret.json"
@@ -50,25 +56,119 @@ def check_chrome_headless(chrome_executable):
     
     return True
 
-def authenticate_gmail(chrome_executable):
-    """Authentifiziert den Benutzer und erstellt einen Dienst unter Verwendung des chrome_executable."""
+def generate_openssl_certs(cert_dir='certs', private_key_filename='private_key.pem', cert_filename='cert.pem', csr_filename='cert_request.csr'):
+    """
+    Generates a private key, certificate signing request (CSR), and self-signed certificate using OpenSSL.
+
+    :param cert_dir: Directory to store the certificates (default is 'certs')
+    :param private_key_filename: Filename for the private key (default is 'private_key.pem')
+    :param cert_filename: Filename for the certificate (default is 'cert.pem')
+    :param csr_filename: Filename for the certificate signing request (default is 'cert_request.csr')
+    :return: None
+    """
+    # Ensure the certificate directory exists
+    if not os.path.exists(cert_dir):
+        os.makedirs(cert_dir)
+
+    # Full paths to the certificate files
+    private_key_path = os.path.join(cert_dir, private_key_filename)
+    csr_path = os.path.join(cert_dir, csr_filename)
+    cert_path = os.path.join(cert_dir, cert_filename)
+
+    # Generate private key
+    subprocess.run(['openssl', 'genpkey', '-algorithm', 'RSA', '-out', private_key_path], check=True)
+    print(f"Private key saved to {private_key_path}")
+
+    # Generate CSR
+    subprocess.run(['openssl', 'req', '-new', '-key', private_key_path, '-out', csr_path], check=True)
+    print(f"CSR saved to {csr_path}")
+
+    # Generate self-signed certificate
+    subprocess.run(['openssl', 'x509', '-req', '-in', csr_path, '-signkey', private_key_path, '-out', cert_path], check=True)
+    print(f"Certificate saved to {cert_path}")
+
+app = Flask(__name__)
+
+# Path to your certificates
+CERT_FILE = './certs/cert.pem'
+KEY_FILE = './certs/private_key.pem'
+
+SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+
+def run_local_server(flow):
+    """Runs a Flask server to handle the redirect after OAuth authentication."""
+    @app.route('/')
+    def authorize():
+        # Extract the authorization code from the request URL
+        authorization_response = request.url
+        flow.fetch_token(authorization_response=authorization_response)
+        
+        # Save the credentials
+        creds = flow.credentials
+        with open('token.json', 'w') as token:
+            token.write(creds.to_json())
+        
+        print("Authentication complete!")
+        return 'Authentication complete. You can close this window.'
+    
+    # Run Flask with SSL context
+    app.run(host='localhost', port=8080, ssl_context=(CERT_FILE, KEY_FILE), debug=True, use_reloader=False)
+
+def authenticate_gmail(chrome_executable, client_secret_filename):
+    """Authenticates the user and creates a service using chrome_executable."""
     creds = None
     token_path = 'token.json'
+    
+    # Check if token file exists and is non-empty
     if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        try:
+            with open(token_path, 'r') as token_file:
+                # Ensure the file isn't empty
+                if token_file.read().strip():
+                    creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+                    print("Token loaded successfully.")
+                else:
+                    print("Token file is empty. Re-authentication is required.")
+                    creds = None
+        except Exception as e:
+            print(f"Error loading token: {e}")
+            creds = None
+    
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                client_secret_filename, SCOPES)
-            # Using chrome_executable to open the browser for authentication
-            flow.run_local_server(port=0, authorization_code_callback=None)
-            subprocess.Popen([chrome_executable, flow.authorization_url()[0]])
-            creds = flow.run_local_server(port=0)
+            flow = InstalledAppFlow.from_client_secrets_file(client_secret_filename, SCOPES)
+            
+            # Manually set the redirect URI to point to your local server over HTTPS
+            redirect_uri_manual = 'https://localhost:8080/'  # Use HTTPS here
+            flow.redirect_uri = redirect_uri_manual
+            print("Redirect URI set to:", flow.redirect_uri)
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            print(f"Please visit this URL to authorize: {auth_url}")
+            
+            # Open the URL in Chrome
+            webbrowser.register('chrome-dev', None, webbrowser.BackgroundBrowser(chrome_executable))
+            webbrowser.get('chrome-dev').open(auth_url)
+
+            # Start a local server to handle the redirect after user completes authentication
+            thread = threading.Thread(target=run_local_server, args=(flow,))
+            thread.start()
+            
+            # Wait for the server to handle the redirect and complete authentication
+            print("Waiting for authentication to complete...")
+            thread.join()  # Ensure that the thread finishes execution
+            
+        # Load the credentials after waiting for the OAuth flow to complete
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+
+        # Save the credentials for the next run
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
+            print("Token saved.")
+    
     return build('gmail', 'v1', credentials=creds)
+
 
 
 def get_unread_emails(service):
