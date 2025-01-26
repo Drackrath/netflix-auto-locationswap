@@ -23,8 +23,10 @@ def click_primary_location_button(link, email_id, service):
     
     # Bestimme das Betriebssystem und wähle den entsprechenden WebDriver
     if platform.system() == "Windows":
+        chrome_options.binary_location = "./chrome-win64/chrome.exe"  # Windows Binary
         service = Service('./chromedriver-win64/chromedriver.exe')  # Windows Driver
     elif platform.system() == "Linux":
+        chrome_options.binary_location = "./chrome-linux64/chrome"  # Linux Binary
         service = Service('./chromedriver-linux64/chromedriver')  # Linux Driver
 
     # Browser starten
@@ -81,7 +83,7 @@ def click_primary_location_button(link, email_id, service):
 
 
 if __name__ == "__main__":
-    print("Linux Chromedriver wird heruntergeladen...")
+    print("Chrome Binary wird überprüft...")
     ensure_chrome_binary()  # Stelle sicher, dass der Chromedriver vorhanden ist
     
     print("Authentifizierung...")

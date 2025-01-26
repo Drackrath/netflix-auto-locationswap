@@ -1,4 +1,5 @@
 import os.path
+import platform
 import re
 import base64
 import json
@@ -85,13 +86,18 @@ def mark_email_as_read(service, email_id):
         
 def ensure_chrome_binary():
     """Ensures that the chrome-linux64 directory exists. If not, downloads and extracts it."""
-    chrome_dir = "./chrome-linux64"
-    chrome_zip_url = "https://storage.googleapis.com/chrome-for-testing-public/132.0.6834.110/linux64/chrome-linux64.zip"
-    chrome_zip_file = "chrome-linux64.zip"
+    if platform.system() == "Windows":
+        chrome_dir = "./chrome-win64/"
+        chrome_zip_url = "https://storage.googleapis.com/chrome-for-testing-public/132.0.6834.110/win64/chrome-win64.zip"
+        chrome_zip_file = "chrome-win64.zip"
+    elif platform.system() == "Linux":
+        chrome_dir = "./chrome-linux64/"
+        chrome_zip_url = "https://storage.googleapis.com/chrome-for-testing-public/132.0.6834.110/linux64/chrome-linux64.zip"
+        chrome_zip_file = "chrome-linux64.zip"
 
     # Check if the chrome-linux64 directory already exists
     if not os.path.exists(chrome_dir):
-        print("chrome-linux64 directory not found. Downloading...")
+        print("Chrome binary nicht gefunden. Download gestartet...")
 
         # Download the zip file
         response = requests.get(chrome_zip_url, stream=True)
@@ -101,7 +107,7 @@ def ensure_chrome_binary():
                     file.write(chunk)
             print(f"Downloaded {chrome_zip_file}")
         else:
-            raise Exception(f"Failed to download Chrome zip file. HTTP Status: {response.status_code}")
+            raise Exception(f"Download fehlgeschlagen. HTTP Status: {response.status_code}")
 
         # Extract the zip file
         with zipfile.ZipFile(chrome_zip_file, "r") as zip_ref:
@@ -113,4 +119,4 @@ def ensure_chrome_binary():
         print(f"Removed the zip file {chrome_zip_file}")
 
     else:
-        print("chrome-linux64 directory already exists.")
+        print("Chrome binary gefunden...")
