@@ -1,8 +1,10 @@
 import time
 import os.path
 import re
-import webbrowser
 import base64
+import json
+import platform
+
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -12,17 +14,21 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium import webdriver
-import time
+
 
 client_secret_filename = "client_secret.json"
 netflix_client_credentials = "netflix_client_credentials.json"
+
+# Funktion, um die Netflix-Anmeldedaten aus der JSON-Datei zu laden
+def load_netflix_credentials():
+    with open('netflix_client_credentials.json', 'r') as file:
+        credentials = json.load(file)
+    return credentials['netflix_accountname'], credentials['netflix_password']
+
+# Laden der Netflix-Anmeldedaten
+netflix_accountname, netflix_password = load_netflix_credentials()
 
 # Berechtigungen für die Gmail API
 SCOPES = [
@@ -81,7 +87,12 @@ def click_primary_location_button(link, email_id, service):
     # Konfiguration für den WebDriver
     chrome_options = Options()
     chrome_options.add_argument("--start-maximized")  # Fenster maximieren
-    service = Service('./chromedriver-win64/chromedriver.exe')  # Pfad zum WebDriver
+    
+    # Bestimme das Betriebssystem und wähle den entsprechenden WebDriver
+    if platform.system() == "Windows":
+        service = Service('./chromedriver-win64/chromedriver.exe')  # Windows Driver
+    elif platform.system() == "Linux":
+        service = Service('./chromedriver-linux64/chromedriver')  # Linux Driver
 
     # Browser starten
     driver = webdriver.Chrome(service=service, options=chrome_options)
