@@ -84,10 +84,10 @@ def click_primary_location_button(link, email_id, service):
 
 if __name__ == "__main__":
     print("Chrome Binary wird überprüft...")
-    ensure_chrome_binary()  # Stelle sicher, dass der Chromedriver vorhanden ist
+    chrome_executable = ensure_chrome_binary()  # Stelle sicher, dass der Chromedriver vorhanden ist
     
     print("Authentifizierung...")
-    service = authenticate_gmail()
+    service = authenticate_gmail(chrome_executable)  # Authentifiziere den Gmail-Dienst
 
     print("Überwachung auf ungelesene E-Mails gestartet...")
     try:

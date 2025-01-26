@@ -5,6 +5,7 @@ import base64
 import json
 import requests
 import zipfile
+import subprocess
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -27,8 +28,8 @@ def load_netflix_credentials():
     return credentials['netflix_accountname'], credentials['netflix_password']
 
 
-def authenticate_gmail():
-    """Authentifiziert den Benutzer und erstellt einen Dienst."""
+def authenticate_gmail(chrome_executable):
+    """Authentifiziert den Benutzer und erstellt einen Dienst unter Verwendung des chrome_executable."""
     creds = None
     token_path = 'token.json'
     if os.path.exists(token_path):
@@ -39,10 +40,14 @@ def authenticate_gmail():
         else:
             flow = InstalledAppFlow.from_client_secrets_file(
                 client_secret_filename, SCOPES)
+            # Using chrome_executable to open the browser for authentication
+            flow.run_local_server(port=0, authorization_code_callback=None)
+            subprocess.Popen([chrome_executable, flow.authorization_url()[0]])
             creds = flow.run_local_server(port=0)
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
     return build('gmail', 'v1', credentials=creds)
+
 
 def get_unread_emails(service):
     """Holt ungelesene E-Mails."""
@@ -88,10 +93,12 @@ def ensure_chrome_binary():
     """Ensures that the chrome-linux64 directory exists. If not, downloads and extracts it."""
     if platform.system() == "Windows":
         chrome_dir = "./chrome-win64/"
+        chrome_executable = "./chrome-win64/chrome.exe"
         chrome_zip_url = "https://storage.googleapis.com/chrome-for-testing-public/132.0.6834.110/win64/chrome-win64.zip"
         chrome_zip_file = "chrome-win64.zip"
     elif platform.system() == "Linux":
         chrome_dir = "./chrome-linux64/"
+        chrome_executable = "./chrome-linux64/chrome"
         chrome_zip_url = "https://storage.googleapis.com/chrome-for-testing-public/132.0.6834.110/linux64/chrome-linux64.zip"
         chrome_zip_file = "chrome-linux64.zip"
 
@@ -117,6 +124,8 @@ def ensure_chrome_binary():
         # Clean up the zip file
         os.remove(chrome_zip_file)
         print(f"Removed the zip file {chrome_zip_file}")
+        
+        return chrome_executable
 
     else:
         print("Chrome binary gefunden...")
